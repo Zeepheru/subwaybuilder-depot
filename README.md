@@ -44,13 +44,14 @@ The required artifacts for the zip are:
 
 - `buildings_index.bin.gz`
 - `buildings_index.json.gz`
-- `config.json`
-- `demand_data.json` (.gz optional)
 - `ocean_depth_index.json.gz`
 - `roads.geojson` (.gz optional)
 - `runways_taxiways.geojson` (.gz optional)
 - `<CITY>.pmtiles`
 - `<CITY>_foundations.pmtiles`
+- Via `DemandData`
+  - `config.json`
+  - `demand_data.json` (.gz optional)
 
 #### Copying registry artifacts
 

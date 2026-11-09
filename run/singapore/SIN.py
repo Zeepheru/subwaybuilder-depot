@@ -37,11 +37,11 @@ map_generator = MapGen(
     buildings_geojson=r"cities/SIN/in/buildings.geojson",
     building_index_filter_size=10,
     building_tile_filter_size=10,
-    building_index_simplification=1,
-    building_tile_simplification=1,
+    building_index_simplification=0.2,  # decreased fron 1
+    building_tile_simplification=0.2,  # decreased fron 1
     ncores=8,
     RAM=24,
-    cleanup_files=False, # yeah that's true I set this to False :)
+    cleanup_files=False,  # yeah that's true I set this to False :)
     create_building_foundations=True,
     color_military_like_aerodrome=False,
     reprocess_bathymetry_data=True,
@@ -62,6 +62,8 @@ map_generator.process_roads_and_aeroways()
 map_generator.generate_pmtiles()
 map_generator.add_labels()
 map_generator.copy_output_artifacts(path="out") # extra
+
+map_generator.check_labels()
 
 # Or just run them all consecutively:
 # map_generator.run_all()
