@@ -26,6 +26,8 @@ Depot caches a lot of map artifacts by default, you may have to delete some of t
 
 ### Code Changes
 
+See Copying registry artifacts as well
+
 #### Additional `MapGen` inputs
 
 | Parameter | Description |
@@ -50,9 +52,24 @@ The required artifacts for the zip are:
 - `<CITY>.pmtiles`
 - `<CITY>_foundations.pmtiles`
 
-### Personal Todos:
+#### Copying registry artifacts
 
-- [ ] Actually, writing in final cleanup (as a separate function under `MapGen`) would be useful. Copies it to an `out` directory inside the city's directory.
+After generating the map, call `copy_output_artifacts()` separately:
+
+```python
+obj.copy_output_artifacts()           # <outputdir>/<CITY>/out/
+obj.copy_output_artifacts("release/") # <outputdir>/<CITY>/release/
+```
+
+The method accepts a relative path (default `out/`), creates the destination,
+and copies the listed artifacts except `demand_data.json` and `config.json`. Roads and
+runways/taxiways use `.geojson`, falling back to `.geojson.gz` when needed.
+The filenames were checked against `cities/SIN`.
+
+Missing source artifacts produce a warning while available artifacts are copied.
+Matching destination filenames are overwritten, and other files (including
+existing demand data and config) are preserved.
+The method returns the copied destination paths. It is not included in `run_all()`.
 
 ## Requirements
 This library requires a shell.  Windows users must use WSL.  No support is provided 
@@ -171,8 +188,10 @@ This is handled through the `depot.maps.MapGen` class.
 | `add_labels`                 | Adds labels to the PMTiles file created by `generate_pmtiles`  |
 | `run_all`                    | Runs the above 5 methods consecutively                         |
 | `check_labels`               | Reports the types and number of places (available map labels)  |
+| `copy_output_artifacts(path='out/')` | Copies available registry artifacts except demand data and config into a directory relative to the city directory; call separately from `run_all()`. |
 
-These methods take no inputs; they use the user-provided inputs when initializing the object. 
+Except for the optional path to `copy_output_artifacts`, these methods take no inputs;
+they use the user-provided inputs when initializing the object.
 `extract_base_data` must be executed first; 
 `process_buildings` must be executed before `generate_pmtiles`; 
 and `generate_pmtiles` must be executed before `add_labels`.

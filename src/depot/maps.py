@@ -1,6 +1,7 @@
 import sys, os
 import subprocess
 import shutil
+import warnings
 import requests
 import httpx
 import json
@@ -39,6 +40,7 @@ class MapGen:
     Methods
     -------
     run_all : Runs all steps to make map files.
+    copy_output_artifacts : Copies registry map artifacts into a separate directory.
     _run_command : Helper to run shell commands safely.
     _merge_osmpbf_files : Merges multiple input .osm.pbf files into one.
     extract_base_data : osmium extract for base layers.
@@ -357,6 +359,58 @@ class MapGen:
         self.process_roads_and_aeroways()
         self.generate_pmtiles()
         self.add_labels()
+
+    def copy_output_artifacts(self, path='out/'):
+        """Copy available registry artifacts from city_dir to a relative path.
+
+        path: str or path-like. Destination relative to the city's directory.
+              Created if needed. Default: 'out/'.
+
+        Copies the registry artifacts listed in README.md, except demand data
+        and config.json.
+        For roads and runways/taxiways, prefer GeoJSON and fall back to .geojson.gz.
+        Existing destination files with matching names are overwritten; other
+        files are preserved. Missing source artifacts produce a warning.
+        Returns a list of copied destination paths. Not called by run_all().
+        """
+        path = os.fspath(path)
+        if os.path.isabs(path):
+            raise ValueError("path must be relative to the city's directory.")
+        destination = os.path.abspath(os.path.join(self.city_dir, path))
+        if os.path.realpath(destination) == os.path.realpath(self.city_dir):
+            raise ValueError("Destination must differ from the city's directory.")
+
+        artifacts = [
+            ('buildings_index.bin.gz',),
+            ('buildings_index.json.gz',),
+            ('ocean_depth_index.json.gz',),
+            ('roads.geojson', 'roads.geojson.gz'),
+            ('runways_taxiways.geojson', 'runways_taxiways.geojson.gz'),
+            (f'{self.city}.pmtiles',),
+            (f'{self.city}_foundations.pmtiles',),
+        ]
+        os.makedirs(destination, exist_ok=True)
+        copied = []
+        missing = []
+        for alternatives in artifacts:
+            filename = next((name for name in alternatives
+                             if os.path.isfile(os.path.join(self.city_dir, name))), None)
+            if filename is None:
+                missing.append(' or '.join(alternatives))
+                continue
+            source = os.path.join(self.city_dir, filename)
+            target = os.path.join(destination, filename)
+            shutil.copy2(source, target)
+            copied.append(target)
+
+        if missing:
+            warnings.warn(
+                f"Missing registry artifacts in {self.city_dir}: {', '.join(missing)}",
+                stacklevel=2,
+            )
+        if self.verb:
+            print(f"Copied {len(copied)} registry artifacts to {destination}")
+        return copied
     
     def _run_command(self, cmd, cwd=None):
         """

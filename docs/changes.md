@@ -1,5 +1,22 @@
 # List of Changes to Code
 
+## Additional high-level methods
+
+### `MapGen.copy_output_artifacts(path='out/')`
+
+Copies the README's registry artifacts from the city directory to a destination
+relative to that directory, excluding demand data and `config.json`. Creates the
+destination and returns the copied paths. Copies both compressed building indices,
+the compressed ocean depth index, roads, runways/taxiways, `<CITY>.pmtiles`, and
+`<CITY>_foundations.pmtiles`. Roads and runways/taxiways prefer `.geojson`, with
+`.geojson.gz` as a fallback. Filenames were verified against `cities/SIN`.
+
+Missing source files produce a warning without stopping the other copies.
+Existing matching destination files are overwritten; unrelated files are
+preserved, including any existing demand data and config. Absolute destination
+paths and the city directory itself are rejected. This method is called
+explicitly and is not part of `run_all()`.
+
 ## Extra Configuration
 
 (To be highlighted separately from the native Depot ones)

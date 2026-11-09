@@ -4,10 +4,81 @@ from unittest.mock import patch
 import numpy as np
 import gzip
 import zlib
+import tempfile
+from pathlib import Path
 import mapbox_vector_tile
 from shapely.geometry import box, mapping, shape
 from shapely.ops import unary_union
 from depot.maps import MapGen
+
+class TestCopyOutputArtifacts(unittest.TestCase):
+
+    def setUp(self):
+        tmp_root = Path(__file__).resolve().parents[1] / 'tmp'
+        tmp_root.mkdir(exist_ok=True)
+        workspace = tempfile.TemporaryDirectory(dir=tmp_root)
+        self.addCleanup(workspace.cleanup)
+        self.city_dir = Path(workspace.name) / 'SIN'
+        self.city_dir.mkdir()
+        self.mg = MapGen.__new__(MapGen)
+        self.mg.city = 'SIN'
+        self.mg.city_dir = str(self.city_dir)
+        self.mg.verb = False
+        self.artifacts = [
+            'buildings_index.bin.gz', 'buildings_index.json.gz',
+            'ocean_depth_index.json.gz', 'roads.geojson',
+            'runways_taxiways.geojson', 'SIN.pmtiles', 'SIN_foundations.pmtiles',
+        ]
+        for filename in self.artifacts:
+            (self.city_dir / filename).write_bytes(filename.encode())
+
+    def test_default_copies_only_registry_map_files_and_preserves_sources(self):
+        for filename in ('config.json', 'demand_data.json', 'demand_data.json.gz',
+                         'sin-clean.mbtiles', 'SIN-nolabels.pmtiles'):
+            (self.city_dir / filename).write_bytes(b'excluded')
+        destination = self.city_dir / 'out'
+        destination.mkdir()
+        (destination / 'config.json').write_bytes(b'existing config')
+        (destination / 'demand_data.json').write_bytes(b'existing demand')
+        (destination / 'SIN.pmtiles').write_bytes(b'old map')
+        copied = self.mg.copy_output_artifacts()
+        self.assertEqual({Path(p).name for p in copied}, set(self.artifacts))
+        for filename in self.artifacts:
+            self.assertEqual((destination / filename).read_bytes(), filename.encode())
+            self.assertEqual((self.city_dir / filename).read_bytes(), filename.encode())
+        self.assertEqual({p.name for p in destination.iterdir()},
+                         set(self.artifacts) | {'config.json', 'demand_data.json'})
+        self.assertEqual((destination / 'config.json').read_bytes(), b'existing config')
+        self.assertEqual((destination / 'demand_data.json').read_bytes(), b'existing demand')
+
+    def test_nested_path_and_compressed_geojson_fallback(self):
+        for filename in ('roads.geojson', 'runways_taxiways.geojson'):
+            (self.city_dir / filename).rename(self.city_dir / (filename + '.gz'))
+        copied = self.mg.copy_output_artifacts(Path('release') / 'map')
+        self.assertEqual(len(copied), 7)
+        self.assertTrue(all(Path(p).parent == self.city_dir / 'release' / 'map'
+                            for p in copied))
+        self.assertTrue((self.city_dir / 'release/map/roads.geojson.gz').is_file())
+        self.assertTrue((self.city_dir / 'release/map/runways_taxiways.geojson.gz').is_file())
+
+    def test_missing_artifacts_warn_and_available_files_are_copied(self):
+        (self.city_dir / 'SIN_foundations.pmtiles').unlink()
+        with self.assertWarnsRegex(UserWarning, 'SIN_foundations.pmtiles'):
+            copied = self.mg.copy_output_artifacts()
+        self.assertEqual(len(copied), 6)
+
+    def test_invalid_destinations_and_run_all_exclusion(self):
+        for path in (str(self.city_dir / 'absolute'), '.', ''):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                self.mg.copy_output_artifacts(path)
+        with patch.multiple(self.mg, **{
+            name: unittest.mock.DEFAULT for name in (
+                'extract_base_data', 'process_buildings', 'process_roads_and_aeroways',
+                'generate_pmtiles', 'add_labels', 'copy_output_artifacts')
+        }) as methods:
+            self.mg.run_all()
+            methods['copy_output_artifacts'].assert_not_called()
+            methods['add_labels'].assert_called_once_with()
 
 class TestZoneOverlaps(unittest.TestCase):
 
@@ -70,6 +141,12 @@ class TestZoneOverlaps(unittest.TestCase):
                                  options.get('resolve_retail_overlaps', True))
 
 class TestMapGen(unittest.TestCase):
+
+    def setUp(self):
+        # Constructor validation tests do not need to create output directories.
+        makedirs = patch('os.makedirs')
+        makedirs.start()
+        self.addCleanup(makedirs.stop)
 
     ##### city validation tests #####
 

@@ -61,6 +61,7 @@ map_generator.process_buildings()
 map_generator.process_roads_and_aeroways()
 map_generator.generate_pmtiles()
 map_generator.add_labels()
+map_generator.copy_output_artifacts(path="out") # extra
 
 # Or just run them all consecutively:
 # map_generator.run_all()
