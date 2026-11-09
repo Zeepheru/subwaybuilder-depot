@@ -10,8 +10,8 @@ depot.egg-info
 # AI stuff
 AGENTS.md
 
-# city data export
-cities_export
+# city data input/export
+cities
 
 # map generation artifacts
 *.osm.pbf
