@@ -111,6 +111,7 @@ class MapGen:
                        buildings_geojson=None, redownload_buildings=False, 
                        create_building_foundations=True, create_ocean_foundations=True,
                        reprocess_bathymetry_data=False, 
+                       include_canals_drains=False,
                        color_military_like_aerodrome=True,
                        maxzoom=15, 
                        ncores=1, RAM=4, cleanup_files=True, verb=True, debug=False):
@@ -207,6 +208,10 @@ class MapGen:
                                    calculated bathymetric data if available 
                                    or recalculate it fresh.
                                    Default: True
+        include_canals_drains: bool. If True, OSM `canal` and `drain` waterway 
+                                   features are included in the water layer. If 
+                                   False, they are excluded (treated as land).
+                                   Default: False
         color_military_like_aerodrome: bool. If True, military bases are 
                                        colored on the map the same as airports.
                                        If False, it looks like any other 
@@ -258,6 +263,7 @@ class MapGen:
         self.create_building_foundations = bool(create_building_foundations)
         self.create_ocean_foundations = bool(create_ocean_foundations)
         self.reprocess_bathymetry_data = bool(reprocess_bathymetry_data)
+        self.include_canals_drains = bool(include_canals_drains)
         self.color_military_like_aerodrome = bool(color_military_like_aerodrome)
         self.maxzoom = int(maxzoom)
         self.ncores = ncores
@@ -318,6 +324,7 @@ class MapGen:
             print(f"create_building_foundations  : {self.create_building_foundations}")
             print(f"create_ocean_foundations     : {self.create_ocean_foundations}")
             print(f"reprocess_bathymetry_data    : {self.reprocess_bathymetry_data}")
+            print(f"include_canals_drains        : {self.include_canals_drains}")
             print(f"color_military_like_aerodrome: {self.color_military_like_aerodrome}")
             print(f"building_index_filter_size   : {self.building_index_filter_size} m2")
             print(f"building_tile_filter_size    : {self.building_tile_filter_size} m2")
@@ -1517,6 +1524,11 @@ class MapGen:
                     # Check both 'kind' and 'class' as different schema flavors use one or the other
                     feature_kind = props.get('kind', props.get('class', ''))
                     if feature_kind == 'ditch':
+                        continue
+
+                    # Added
+                    if not self.include_canals_drains and \
+                            feature_kind in ('canal', 'drain'):
                         continue
                     
                     raw_geom = feature['geometry']
