@@ -1,4 +1,4 @@
-# List of Changes
+# List of Changes to Code
 
 ## Extra Configuration
 
