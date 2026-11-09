@@ -111,10 +111,11 @@ class MapGen:
                        buildings_geojson=None, redownload_buildings=False, 
                        create_building_foundations=True, create_ocean_foundations=True,
                        reprocess_bathymetry_data=False, 
-                       include_canals_drains=False,
                        color_military_like_aerodrome=True,
                        maxzoom=15, 
-                       ncores=1, RAM=4, cleanup_files=True, verb=True, debug=False):
+                       ncores=1, RAM=4, cleanup_files=True, verb=True, debug=False,
+                       include_canals_drains=False,
+                       resolve_edu_overlaps=True, resolve_retail_overlaps=True):
         """
         Inputs
         ------
@@ -208,10 +209,6 @@ class MapGen:
                                    calculated bathymetric data if available 
                                    or recalculate it fresh.
                                    Default: True
-        include_canals_drains: bool. If True, OSM `canal` and `drain` waterway 
-                                   features are included in the water layer. If 
-                                   False, they are excluded (treated as land).
-                                   Default: False
         color_military_like_aerodrome: bool. If True, military bases are 
                                        colored on the map the same as airports.
                                        If False, it looks like any other 
@@ -235,6 +232,18 @@ class MapGen:
         debug: bool. Determines whether to output some additional details to 
                      the pmtiles file that are not needed but can be helpful.
                      Default: False
+        include_canals_drains: bool. If True, OSM `canal` and `drain` waterway 
+                                   features are included in the water layer. If 
+                                   False, they are excluded (treated as land).
+                                   Default: False
+        resolve_edu_overlaps: bool. If True, remove parks from school, college,
+                                   and university zones, and clip these zones
+                                   against water and aerodromes. If False,
+                                   preserve their overlaps. Default: True
+        resolve_retail_overlaps: bool. If True, remove parks from retail zones
+                                      and clip retail against water and
+                                      aerodromes. If False, preserve their
+                                      overlaps. Default: True
         """
         self.verb = bool(verb)
         self.debug = bool(debug)
@@ -265,6 +274,8 @@ class MapGen:
         self.reprocess_bathymetry_data = bool(reprocess_bathymetry_data)
         self.include_canals_drains = bool(include_canals_drains)
         self.color_military_like_aerodrome = bool(color_military_like_aerodrome)
+        self.resolve_edu_overlaps = bool(resolve_edu_overlaps)
+        self.resolve_retail_overlaps = bool(resolve_retail_overlaps)
         self.maxzoom = int(maxzoom)
         self.ncores = ncores
         self.RAM = RAM # Multiplied by 1000 in the setter to convert GB -> MB
@@ -326,6 +337,8 @@ class MapGen:
             print(f"reprocess_bathymetry_data    : {self.reprocess_bathymetry_data}")
             print(f"include_canals_drains        : {self.include_canals_drains}")
             print(f"color_military_like_aerodrome: {self.color_military_like_aerodrome}")
+            print(f"resolve_edu_overlaps         : {self.resolve_edu_overlaps}")
+            print(f"resolve_retail_overlaps      : {self.resolve_retail_overlaps}")
             print(f"building_index_filter_size   : {self.building_index_filter_size} m2")
             print(f"building_tile_filter_size    : {self.building_tile_filter_size} m2")
             print(f"max_building_tile_size       : {self.max_building_tile_size}")
@@ -2152,12 +2165,21 @@ class MapGen:
             if aerodrome_geoms:
                 aerodrome_mask = unary_union(aerodrome_geoms)
         
-        # Build commercial mask
+        # Commercial always resolves overlaps; education and retail are optional.
+        # Education uses 'type' rather than 'kind' in the game's tile schema.
+        overlap_kinds = {"commercial"}
+        if self.resolve_edu_overlaps:
+            overlap_kinds.add("college")
+        if self.resolve_retail_overlaps:
+            overlap_kinds.add("retail")
+
+        # Build the mask of zones to subtract from parks.
         commercial_mask = None
         if "commercial" in new_layers_data:
             commercial_geoms = []
             for feat in new_layers_data["commercial"]:
-                if feat["properties"].get("kind") == "commercial":
+                props = feat["properties"]
+                if (props.get("kind") or props.get("type")) in overlap_kinds:
                     a_geom = shape(feat["geometry"]).intersection(tile_bounds)
                     if not a_geom.is_empty:
                         if not a_geom.is_valid:
@@ -2212,7 +2234,7 @@ class MapGen:
                         if not geom.is_valid:
                             geom = geom.buffer(0)
                 
-                # Subtract commercial from parks
+                # Subtract commercial and enabled education/retail zones from parks
                 if kind == "park" and commercial_mask is not None and not commercial_mask.is_empty:
                     if geom.intersects(commercial_mask):
                         geom = geom.difference(commercial_mask)
@@ -2235,13 +2257,14 @@ class MapGen:
                 
             new_layers_data["landuse"] = kept
         
-        # Subtract water and aerodrome from commercial
+        # Subtract water and aerodromes from commercial and enabled zone types.
         if "commercial" in new_layers_data:
             kept = []
             for feat in new_layers_data["commercial"]:
-                kind = feat["properties"].get("kind")
+                props = feat["properties"]
+                kind = props.get("kind") or props.get("type")
                 
-                if kind not in ["commercial"]:
+                if kind not in overlap_kinds:
                     kept.append(feat)
                     continue
                 
@@ -2260,7 +2283,7 @@ class MapGen:
                             geom = geom.buffer(0)
                 
                 # Subtract aerodromes from commercial
-                if kind == "commercial" and aerodrome_mask is not None and not aerodrome_mask.is_empty:
+                if aerodrome_mask is not None and not aerodrome_mask.is_empty:
                     if geom.intersects(aerodrome_mask):
                         geom = geom.difference(aerodrome_mask)
                         if not geom.is_valid:

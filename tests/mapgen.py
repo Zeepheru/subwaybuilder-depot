@@ -2,7 +2,72 @@ import sys, os
 import unittest
 from unittest.mock import patch
 import numpy as np
+import gzip
+import zlib
+import mapbox_vector_tile
+from shapely.geometry import box, mapping, shape
+from shapely.ops import unary_union
 from depot.maps import MapGen
+
+class TestZoneOverlaps(unittest.TestCase):
+
+    def test_overlap_toggle_combinations(self):
+        """Exercise actual tile encoding and clipping for each zone and toggle."""
+        mg = MapGen.__new__(MapGen)
+        mg.debug = False
+        mg.color_military_like_aerodrome = False
+        zone_box = box(100, 100, 900, 900)
+        blockers = {
+            'park': box(100, 100, 300, 900),
+            'lake': box(400, 100, 600, 900),
+            'aerodrome': box(700, 100, 900, 900),
+        }
+        with patch.object(mg, '_get_local_bbox_mask', return_value=box(0, 0, 4096, 4096)), \
+             patch.object(mg, '_calculate_buffer', return_value=1):
+            for edu in (False, True):
+                for retail in (False, True):
+                    mg.resolve_edu_overlaps = edu
+                    mg.resolve_retail_overlaps = retail
+                    for zone in ('school', 'college', 'university', 'retail', 'commercial'):
+                        with self.subTest(edu=edu, retail=retail, zone=zone):
+                            features = [
+                                {'geometry': mapping(geom), 'properties': {'class': kind}}
+                                for kind, geom in [(zone, zone_box), *blockers.items()]
+                            ]
+                            source = gzip.compress(mapbox_vector_tile.encode(
+                                [{'name': 'landuse', 'features': features}]))
+                            _, _, _, data = mg._process_tile_worker((14, 0, 0, source))
+                            layers = mapbox_vector_tile.decode(zlib.decompress(data))
+                            output_zone = layers['commercial']['features'][0]
+                            zone_geom = shape(output_zone['geometry'])
+                            enabled = (retail if zone == 'retail' else
+                                       True if zone == 'commercial' else edu)
+                            for kind, layer in [('park', 'landuse'), ('aerodrome', 'landuse'),
+                                                ('water', 'water')]:
+                                mask = unary_union([
+                                    shape(f['geometry']) for f in layers[layer]['features']
+                                    if f['properties'].get('kind') == kind
+                                ])
+                                area = zone_geom.intersection(mask).area
+                                if enabled:
+                                    self.assertEqual(area, 0, kind)
+                                else:
+                                    self.assertGreater(area, 0, kind)
+                            if zone in ('school', 'college', 'university'):
+                                self.assertEqual(output_zone['properties']['type'], 'college')
+                                self.assertNotIn('kind', output_zone['properties'])
+
+    @patch.object(MapGen, '_validate_env')
+    def test_parameter_defaults_and_overrides(self, mock_validate_env):
+        with patch('os.path.exists', return_value=True), patch('os.makedirs'):
+            for options in ({}, {'resolve_edu_overlaps': False,
+                                'resolve_retail_overlaps': False}):
+                mg = MapGen('TEST', [-118.5, 33.9, -118.4, 34.0],
+                            osmpbf='dummy.osm.pbf', verb=False, **options)
+                self.assertEqual(mg.resolve_edu_overlaps,
+                                 options.get('resolve_edu_overlaps', True))
+                self.assertEqual(mg.resolve_retail_overlaps,
+                                 options.get('resolve_retail_overlaps', True))
 
 class TestMapGen(unittest.TestCase):
 

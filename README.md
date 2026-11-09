@@ -6,6 +6,16 @@ It primarily adds extra configurability settings that I need
 
 ## Changes
 
+### Additional `MapGen` inputs
+
+| Parameter | Description |
+| --------- | ----------- |
+| `include_canals_drains` | bool. If True, include OSM canal and drain waterways in the water layer. If False, exclude them and treat them as land. Default: False |
+| `resolve_edu_overlaps` | bool. If True, subtract school, college, and university zones from parks, and subtract water and aerodromes from those education zones. If False, preserve their overlaps. Default: True |
+| `resolve_retail_overlaps` | bool. If True, subtract retail zones from parks, and subtract water and aerodromes from retail zones. If False, preserve their overlaps. Default: True |
+
+The overlap options operate independently. Ordinary commercial zones always resolve these overlaps.
+
 ## Requirements
 This library requires a shell.  Windows users must use WSL.  No support is provided 
 for a non-WSL approach, but savvy users may be able to figure one out.
