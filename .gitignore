@@ -9,6 +9,10 @@ __pycache__
 
 depot.egg-info
 
+# Local things
+tmp
+local
+
 # AI stuff
 AGENTS.md
 
