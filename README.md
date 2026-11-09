@@ -6,6 +6,14 @@ It primarily adds extra configurability settings that I need
 
 ## Changes
 
+Runners in `./run/<city>/<city_code>.py`:
+
+Run by: 
+```bash
+conda activate sb-depot
+PYTHONPATH=src python run/singapore/SIN.py
+```
+
 ### Additional `MapGen` inputs
 
 | Parameter | Description |

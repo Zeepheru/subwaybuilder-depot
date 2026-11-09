@@ -1,9 +1,11 @@
-# environments
+# misc
 .venv*
 venv*
 node_modules
 package*
 __pycache__
+
+.vscode
 
 depot.egg-info
 
