@@ -1,20 +1,32 @@
-# depot: a Python library of map-making utilities for Subway Builder
+# Zeeph's Depot Fork
 
-This is a fork modified for my own use cases
+> depot: a Python library of map-making utilities for Subway Builder
 
-It primarily adds extra configurability settings that I need
+This is a fork modified for my own use cases.
 
-## Changes
+It primarily adds extra configurability settings that I need. And usage/functionality documentation. The original Depot repo unfortunately is not a bastion of documentation verbosity :P
 
-Runners in `./run/<city>/<city_code>.py`:
+## Additions
 
-Run by: 
+### How to run
+
+Install dependencies to conda environment `sb-depot`
+
+Assuming runners in `./run/<city>/<city_code>.py`; example for singapore:
+
 ```bash
 conda activate sb-depot
 PYTHONPATH=src python run/singapore/SIN.py
+PYTHONPATH=src python run/singapore/SIN_demand.py # remember to do this too
 ```
 
-### Additional `MapGen` inputs
+#### Forcing Recomputations
+
+Depot caches a lot of map artifacts by default, you may have to delete some of them to force certain things to recompute. I'm not sure which though, I don't remember.
+
+### Code Changes
+
+#### Additional `MapGen` inputs
 
 | Parameter | Description |
 | --------- | ----------- |
@@ -22,7 +34,25 @@ PYTHONPATH=src python run/singapore/SIN.py
 | `resolve_edu_overlaps` | bool. If True, subtract school, college, and university zones from parks, and subtract water and aerodromes from those education zones. If False, preserve their overlaps. Default: True |
 | `resolve_retail_overlaps` | bool. If True, subtract retail zones from parks, and subtract water and aerodromes from retail zones. If False, preserve their overlaps. Default: True |
 
-The overlap options operate independently. Ordinary commercial zones always resolve these overlaps.
+The overlap options operate independently. Ordinary commercial zones always resolve these overlaps, as in the original Depot code.
+
+### Required Produced Map Artifacts for Registry
+
+The required artifacts for the zip are:
+
+- `buildings_index.bin.gz`
+- `buildings_index.json.gz`
+- `config.json`
+- `demand_data.json` (.gz optional)
+- `ocean_depth_index.json.gz`
+- `roads.geojson` (.gz optional)
+- `runways_taxiways.geojson` (.gz optional)
+- `<CITY>.pmtiles`
+- `<CITY>_foundations.pmtiles`
+
+### Personal Todos:
+
+- [ ] Actually, writing in final cleanup (as a separate function under `MapGen`) would be useful. Copies it to an `out` directory inside the city's directory.
 
 ## Requirements
 This library requires a shell.  Windows users must use WSL.  No support is provided 
