@@ -1,4 +1,10 @@
-## depot: a Python library of map-making utilities for Subway Builder
+# depot: a Python library of map-making utilities for Subway Builder
+
+This is a fork modified for my own use cases
+
+It primarily adds extra configurability settings that I need
+
+## Changes
 
 ## Requirements
 This library requires a shell.  Windows users must use WSL.  No support is provided 

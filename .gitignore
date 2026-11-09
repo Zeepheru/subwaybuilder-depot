@@ -1,0 +1,18 @@
+# environments
+.venv*
+venv*
+node_modules
+package*
+__pycache__
+
+depot.egg-info
+
+# AI stuff
+AGENTS.md
+
+# city data export
+cities_export
+
+# map generation artifacts
+*.osm.pbf
+data
