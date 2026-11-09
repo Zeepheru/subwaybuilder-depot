@@ -1,19 +1,21 @@
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import requests
 
 from depot.maps import MapGen
 
-# print(os.getcwd())
+print(f"Working directory: {os.getcwd()}")
 
 # Download the .osm.pbf file we need
-if not os.path.exists("data" / "malaysia-singapore-brunei-latest.osm.pbf"):
+osmpbf_path = Path("data") / "malaysia-singapore-brunei-latest.osm.pbf"
+if not os.path.exists(osmpbf_path):
     url = "https://download.geofabrik.de/asia/malaysia-singapore-brunei-latest.osm.pbf"
     print("Downloading", url, flush=True)
     resp = requests.get(url)
-    with open("data" / "malaysia-singapore-brunei-latest.osm.pbf", "wb") as f:
+    with open(osmpbf_path, "wb") as f:
         f.write(resp.content)
 
 """
@@ -27,11 +29,11 @@ Singapore's admin boundaries (per https://wiki.openstreetmap.org/wiki/Singapore/
 """
 
 # Set up MapGen object
-obj = MapGen(
+map_generator = MapGen(
     city="SIN",
-    outputdir="SIN/TEMP1",
+    outputdir="cities",
     bbox=[103.578442, 1.155904, 104.112653, 1.489401],
-    osmpbf="malaysia-singapore-brunei-latest.osm.pbf",
+    osmpbf=str(osmpbf_path),
     buildings_geojson=r"cities/SIN/in/buildings.geojson",
     building_index_filter_size=10,
     building_tile_filter_size=10,
@@ -39,10 +41,10 @@ obj = MapGen(
     building_tile_simplification=1,
     ncores=8,
     RAM=24,
-    cleanup_files=False,
+    cleanup_files=False, # yeah that's true I set this to False :)
     create_building_foundations=True,
     color_military_like_aerodrome=False,
-    reprocess_bathymetry_data=True, 
+    reprocess_bathymetry_data=True,
     cities=["city"],
     suburbs=["town", "suburb"],
     neighborhoods=["neighbourhood", "quarter"],
@@ -54,11 +56,11 @@ obj = MapGen(
 )
 
 # If you want to run each method individually:
-obj.extract_base_data()
-obj.process_buildings()
-obj.process_roads_and_aeroways()
-obj.generate_pmtiles()
-obj.add_labels()
+map_generator.extract_base_data()
+map_generator.process_buildings()
+map_generator.process_roads_and_aeroways()
+map_generator.generate_pmtiles()
+map_generator.add_labels()
 
 # Or just run them all consecutively:
-# obj.run_all()
+# map_generator.run_all()
